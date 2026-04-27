@@ -27,6 +27,8 @@ from xgboost import XGBClassifier
 from model.preprocessing import (
     build_preprocessor,
     detect_target_column,
+    drop_non_feature_columns,
+    normalize_column_names,
     preprocess_data,
     validate_dataframe,
 )
@@ -106,8 +108,15 @@ def train_model(
     if not valid:
         raise ValueError(msg)
 
+    # Normalize column names before anything else
+    df = normalize_column_names(df)
+    df = drop_non_feature_columns(df)
+
     if target_col is None:
         target_col = detect_target_column(df)
+    else:
+        # Normalize the user-provided target_col name to match
+        target_col = target_col.strip().lower().replace(" ", "_")
     if target_col is None:
         raise ValueError(
             "Could not detect target column. Please ensure your dataset has a "

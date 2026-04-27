@@ -4,12 +4,52 @@ Handles missing values, encoding categorical variables, and feature scaling.
 Uses sklearn pipelines to ensure consistent preprocessing in training and inference.
 """
 
+import re
+
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+
+# Patterns for columns that are obviously not features
+_NON_FEATURE_PATTERNS = re.compile(
+    r"^(" +
+    r"(.*_)?(id|identifier|index|row_number|serial)" +
+    r"|transaction_id|trans_id|txn_id|record_id|customer_id|account_id" +
+    r"|name|customer_name|cardholder_name|merchant_name|first_name|last_name" +
+    r"|full_name|card_number|cc_num|ssn|email|phone|address" +
+    r")$",
+    re.IGNORECASE,
+)
+
+
+def normalize_column_names(df: pd.DataFrame) -> pd.DataFrame:
+    """Normalize column names: lowercase, trim whitespace, replace spaces with underscores."""
+    df = df.copy()
+    df.columns = [
+        re.sub(r"\s+", "_", col.strip().lower())
+        for col in df.columns
+    ]
+    return df
+
+
+def detect_non_feature_columns(df: pd.DataFrame) -> list[str]:
+    """Detect columns that are obviously not features (IDs, names, identifiers)."""
+    non_feature = []
+    for col in df.columns:
+        if _NON_FEATURE_PATTERNS.match(col):
+            non_feature.append(col)
+    return non_feature
+
+
+def drop_non_feature_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Drop obvious non-feature columns from the dataframe."""
+    to_drop = detect_non_feature_columns(df)
+    if to_drop:
+        df = df.drop(columns=to_drop)
+    return df
 
 
 def validate_dataframe(df: pd.DataFrame) -> tuple[bool, str]:
