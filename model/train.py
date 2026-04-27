@@ -61,7 +61,7 @@ def get_model(model_name: str, class_weight_dict: dict | None = None):
     elif model_name == "XGBoost":
         scale = 1.0
         if class_weight_dict and 0 in class_weight_dict and 1 in class_weight_dict:
-            scale = class_weight_dict[0] / class_weight_dict[1]
+            scale = class_weight_dict[1] / class_weight_dict[0]
             scale = max(scale, 1.0)
         return XGBClassifier(
             n_estimators=200,
@@ -181,8 +181,11 @@ def save_model(result: dict, path: str = DEFAULT_MODEL_PATH) -> str:
     return path
 
 
-def load_model(path: str = DEFAULT_MODEL_PATH) -> dict:
-    """Load a saved model artifact from disk."""
-    with open(path, "rb") as f:
-        artifact = pickle.load(f)
+def load_model(path_or_file=DEFAULT_MODEL_PATH) -> dict:
+    """Load a saved model artifact from a file path or file-like object."""
+    if hasattr(path_or_file, "read"):
+        artifact = pickle.load(path_or_file)
+    else:
+        with open(path_or_file, "rb") as f:
+            artifact = pickle.load(f)
     return artifact

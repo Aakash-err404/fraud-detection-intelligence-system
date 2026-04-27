@@ -6,11 +6,7 @@ Loads a pre-trained model and runs inference on new data.
 import numpy as np
 import pandas as pd
 
-from model.preprocessing import (
-    detect_target_column,
-    identify_column_types,
-    validate_dataframe,
-)
+from model.preprocessing import validate_dataframe
 from model.train import load_model
 
 FRAUD_THRESHOLD = 0.5
@@ -52,27 +48,23 @@ def predict(
     available_categorical = [c for c in categorical_cols if c in df.columns]
 
     if not available_numeric and not available_categorical:
-        detected_target = detect_target_column(df)
-        available_numeric, available_categorical = identify_column_types(
-            df, detected_target,
+        raise ValueError(
+            "No matching feature columns found in the uploaded dataset. "
+            f"Expected columns: {numeric_cols + categorical_cols}"
         )
-        if not available_numeric:
-            raise ValueError(
-                "No matching feature columns found in the uploaded dataset. "
-                f"Expected columns: {numeric_cols + categorical_cols}"
-            )
 
-    missing_numeric = [c for c in numeric_cols if c not in df.columns]
-    missing_categorical = [c for c in categorical_cols if c not in df.columns]
-
-    feature_df = df.copy()
-    for col in missing_numeric:
-        feature_df[col] = 0.0
-    for col in missing_categorical:
-        feature_df[col] = "unknown"
+    missing_cols = (
+        [c for c in numeric_cols if c not in df.columns]
+        + [c for c in categorical_cols if c not in df.columns]
+    )
+    if missing_cols:
+        raise ValueError(
+            f"The following expected feature columns are missing from the dataset: "
+            f"{missing_cols}"
+        )
 
     all_features = numeric_cols + categorical_cols
-    X = feature_df[all_features]
+    X = df[all_features]
 
     predictions = pipeline.predict(X)
 

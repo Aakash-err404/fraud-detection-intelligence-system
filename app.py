@@ -84,10 +84,21 @@ if mode == "Use Pre-trained Model":
 
     model_artifact = None
     if model_file is not None:
-        import pickle
+        st.sidebar.warning(
+            "⚠️ Only load model files from trusted sources. "
+            "Malicious .pkl files can execute arbitrary code."
+        )
         try:
-            model_artifact = pickle.load(model_file)
-            st.sidebar.success("Custom model loaded.")
+            model_artifact = load_model(model_file)
+            required_keys = {"pipeline", "model_name", "numeric_cols", "categorical_cols"}
+            if not isinstance(model_artifact, dict) or not required_keys.issubset(model_artifact):
+                st.sidebar.error(
+                    "Invalid model file. Expected keys: "
+                    + ", ".join(sorted(required_keys))
+                )
+                model_artifact = None
+            else:
+                st.sidebar.success("Custom model loaded.")
         except Exception as e:
             st.sidebar.error(f"Failed to load model: {e}")
     elif os.path.exists(DEFAULT_MODEL_PATH):
