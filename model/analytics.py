@@ -102,8 +102,11 @@ def cluster_users(
     else:
         order = cluster_means.mean(axis=1).sort_values().index.tolist()
 
-    segment_names = ["Low Spenders", "Regular Users", "High Spenders"]
-    if n_clusters > 3:
+    if n_clusters == 2:
+        segment_names = ["Low Spenders", "High Spenders"]
+    elif n_clusters == 3:
+        segment_names = ["Low Spenders", "Regular Users", "High Spenders"]
+    else:
         segment_names = [f"Segment {i}" for i in range(n_clusters)]
     label_map = {old: segment_names[i] for i, old in enumerate(order)}
     result["Cluster_Label"] = result["Cluster"].map(label_map)
