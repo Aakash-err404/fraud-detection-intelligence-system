@@ -4,6 +4,8 @@ Loads a pre-trained model and runs inference on new data.
 Adapts any incoming dataset to match the model's expected feature columns.
 """
 
+from __future__ import annotations
+
 import re
 
 import numpy as np

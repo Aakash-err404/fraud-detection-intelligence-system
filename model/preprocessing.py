@@ -4,6 +4,8 @@ Handles missing values, encoding categorical variables, and feature scaling.
 Uses sklearn pipelines to ensure consistent preprocessing in training and inference.
 """
 
+from __future__ import annotations
+
 import re
 
 import numpy as np

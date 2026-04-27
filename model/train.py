@@ -4,6 +4,8 @@ Supports Logistic Regression, Random Forest, and XGBoost.
 Handles class imbalance via SMOTE and class weights.
 """
 
+from __future__ import annotations
+
 import os
 import pickle
 import re
