@@ -17,11 +17,7 @@ from model.analytics import (
     mine_association_rules,
 )
 from model.predict import predict
-from model.preprocessing import (
-    detect_target_column,
-    normalize_column_names,
-    validate_dataframe,
-)
+from model.preprocessing import detect_target_column, validate_dataframe
 from model.train import (
     AVAILABLE_MODELS,
     DEFAULT_MODEL_PATH,
