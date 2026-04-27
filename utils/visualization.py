@@ -176,7 +176,8 @@ def plot_spending_segments(df: pd.DataFrame) -> plt.Figure:
     counts = df["Spending_Segment"].value_counts()
     order = ["Normal User", "Active User", "High Value / Risky"]
     counts = counts.reindex([o for o in order if o in counts.index])
-    colors = ["#2ecc71", "#f39c12", "#e74c3c"][:len(counts)]
+    color_map = {"Normal User": "#2ecc71", "Active User": "#f39c12", "High Value / Risky": "#e74c3c"}
+    colors = [color_map.get(seg, "#95a5a6") for seg in counts.index]
     bars = ax.bar(counts.index, counts.values, color=colors)
     ax.set_ylabel("Count")
     ax.set_title("Spending Segments")
