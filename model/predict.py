@@ -4,6 +4,8 @@ Loads a pre-trained model and runs inference on new data.
 Adapts any incoming dataset to match the model's expected feature columns.
 """
 
+import re
+
 import numpy as np
 import pandas as pd
 
@@ -33,6 +35,10 @@ def align_columns(
     """
     df = normalize_column_names(df)
     df = drop_non_feature_columns(df)
+
+    # Normalize expected column names to match (handles pre-existing models with mixed case)
+    expected_numeric = [re.sub(r"\s+", "_", c.strip().lower()) for c in expected_numeric]
+    expected_categorical = [re.sub(r"\s+", "_", c.strip().lower()) for c in expected_categorical]
 
     # Remove the target column if present so it doesn't interfere
     if target_col and target_col in df.columns:
@@ -86,7 +92,7 @@ def predict(
     target_col = model_artifact.get("target_col")
 
     # Normalize the target_col name to match normalized columns
-    normalized_target = target_col.strip().lower().replace(" ", "_") if target_col else None
+    normalized_target = re.sub(r"\s+", "_", target_col.strip().lower()) if target_col else None
 
     X = align_columns(df, numeric_cols, categorical_cols, target_col=normalized_target)
 

@@ -6,6 +6,7 @@ Handles class imbalance via SMOTE and class weights.
 
 import os
 import pickle
+import re
 
 import numpy as np
 import pandas as pd
@@ -116,7 +117,7 @@ def train_model(
         target_col = detect_target_column(df)
     else:
         # Normalize the user-provided target_col name to match
-        target_col = target_col.strip().lower().replace(" ", "_")
+        target_col = re.sub(r"\s+", "_", target_col.strip().lower())
     if target_col is None:
         raise ValueError(
             "Could not detect target column. Please ensure your dataset has a "
