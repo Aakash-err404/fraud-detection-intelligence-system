@@ -66,8 +66,6 @@ def predict(
     all_features = numeric_cols + categorical_cols
     X = df[all_features]
 
-    predictions = pipeline.predict(X)
-
     result_df = df.copy()
 
     if hasattr(pipeline, "predict_proba"):
@@ -76,7 +74,7 @@ def predict(
         result_df["Prediction"] = (probabilities >= threshold).astype(int)
     else:
         result_df["Fraud_Probability"] = np.nan
-        result_df["Prediction"] = predictions
+        result_df["Prediction"] = pipeline.predict(X)
 
     result_df["Prediction_Label"] = result_df["Prediction"].map(
         {0: "Not Fraud", 1: "Fraud"},
