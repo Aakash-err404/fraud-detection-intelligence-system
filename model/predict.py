@@ -1,15 +1,53 @@
 """Prediction module for fraud detection.
 
 Loads a pre-trained model and runs inference on new data.
+Adapts any incoming dataset to match the model's expected feature columns.
 """
 
 import numpy as np
 import pandas as pd
 
-from model.preprocessing import validate_dataframe
+from model.preprocessing import (
+    drop_non_feature_columns,
+    normalize_column_names,
+    validate_dataframe,
+)
 from model.train import load_model
 
 FRAUD_THRESHOLD = 0.5
+
+
+def align_columns(
+    df: pd.DataFrame,
+    expected_numeric: list[str],
+    expected_categorical: list[str],
+    target_col: str | None = None,
+) -> pd.DataFrame:
+    """Align incoming dataframe columns to match expected model features.
+
+    - Normalizes column names (lowercase, trimmed, underscores)
+    - Drops obvious non-feature columns (IDs, names, identifiers)
+    - Adds missing expected columns with default value 0
+    - Drops extra columns not used by the model
+    - Reorders columns to match the expected order
+    """
+    df = normalize_column_names(df)
+    df = drop_non_feature_columns(df)
+
+    # Remove the target column if present so it doesn't interfere
+    if target_col and target_col in df.columns:
+        df = df.drop(columns=[target_col])
+
+    all_expected = expected_numeric + expected_categorical
+
+    # Add missing columns with default value 0
+    for col in all_expected:
+        if col not in df.columns:
+            df[col] = 0
+
+    # Keep only expected columns, in expected order
+    df = df[all_expected]
+    return df
 
 
 def predict(
@@ -19,6 +57,9 @@ def predict(
     threshold: float = FRAUD_THRESHOLD,
 ) -> pd.DataFrame:
     """Run fraud prediction on a dataframe.
+
+    Automatically adapts the dataset to match the model's expected schema.
+    Never raises errors for column mismatches — always aligns instead.
 
     Args:
         df: Input dataframe with transaction features.
@@ -44,27 +85,10 @@ def predict(
     categorical_cols = model_artifact["categorical_cols"]
     target_col = model_artifact.get("target_col")
 
-    available_numeric = [c for c in numeric_cols if c in df.columns]
-    available_categorical = [c for c in categorical_cols if c in df.columns]
+    # Normalize the target_col name to match normalized columns
+    normalized_target = target_col.strip().lower().replace(" ", "_") if target_col else None
 
-    if not available_numeric and not available_categorical:
-        raise ValueError(
-            "No matching feature columns found in the uploaded dataset. "
-            f"Expected columns: {numeric_cols + categorical_cols}"
-        )
-
-    missing_cols = (
-        [c for c in numeric_cols if c not in df.columns]
-        + [c for c in categorical_cols if c not in df.columns]
-    )
-    if missing_cols:
-        raise ValueError(
-            f"The following expected feature columns are missing from the dataset: "
-            f"{missing_cols}"
-        )
-
-    all_features = numeric_cols + categorical_cols
-    X = df[all_features]
+    X = align_columns(df, numeric_cols, categorical_cols, target_col=normalized_target)
 
     result_df = df.copy()
 
