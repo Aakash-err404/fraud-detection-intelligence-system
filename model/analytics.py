@@ -238,8 +238,9 @@ def apply_fraud_rules(
     hour_col = None
     for c in numeric_cols:
         if c.lower() in ("hour", "time"):
-            hour_col = c
-            break
+            if df[c].max() <= 23:
+                hour_col = c
+                break
 
     freq_col = None
     for c in numeric_cols:
@@ -311,7 +312,7 @@ def mine_association_rules(
     if columns is None:
         columns = df.columns.tolist()
 
-    bin_labels = ["Low", "Med", "High"][:n_bins]
+    bin_labels = ["Low", "Med", "High"][:n_bins] if n_bins <= 3 else [f"Bin_{i}" for i in range(1, n_bins + 1)]
 
     # Pre-compute binned values for numeric columns across the full column
     binned_cols: dict[str, pd.Series] = {}
