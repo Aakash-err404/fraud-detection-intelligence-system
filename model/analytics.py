@@ -228,17 +228,18 @@ def apply_fraud_rules(
 
     Returns *df* with ``Rule_Flag`` (bool) and ``Rule_Reasons`` (str) columns.
     """
-    result = df.copy()
-    flags = pd.Series(False, index=df.index)
-    reasons: list[list[str]] = [[] for _ in range(len(df))]
+    orig_index = df.index
+    work = df.reset_index(drop=True)
+    flags = pd.Series(False, index=work.index)
+    reasons: list[list[str]] = [[] for _ in range(len(work))]
 
-    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    numeric_cols = work.select_dtypes(include=[np.number]).columns.tolist()
 
     amt_col = _find_amount_col(numeric_cols)
     hour_col = None
     for c in numeric_cols:
         if c.lower() in ("hour", "time"):
-            if df[c].max() <= 23:
+            if work[c].max() <= 23:
                 hour_col = c
                 break
 
@@ -249,40 +250,41 @@ def apply_fraud_rules(
             break
 
     location_col = None
-    for c in df.columns:
+    for c in work.columns:
         if c.lower() in ("location", "loc", "city", "region"):
             location_col = c
             break
 
     # Rule 1: High amount + late night
     if amt_col and hour_col:
-        mask = (df[amt_col] > amount_threshold) & (df[hour_col].isin(late_night_hours))
+        mask = (work[amt_col] > amount_threshold) & (work[hour_col].isin(late_night_hours))
         flags |= mask
         for i in mask[mask].index:
-            reasons[df.index.get_loc(i)].append("High amount + late night")
+            reasons[i].append("High amount + late night")
     elif amt_col:
-        mask = df[amt_col] > amount_threshold
+        mask = work[amt_col] > amount_threshold
         flags |= mask
         for i in mask[mask].index:
-            reasons[df.index.get_loc(i)].append(f"Amount > {amount_threshold:,.0f}")
+            reasons[i].append(f"Amount > {amount_threshold:,.0f}")
 
     # Rule 2: New / unusual location + high amount
     if location_col and amt_col:
-        loc_counts = df[location_col].value_counts()
+        loc_counts = work[location_col].value_counts()
         rare_locs = loc_counts[loc_counts <= 2].index
-        mask = df[location_col].isin(rare_locs) & (df[amt_col] > amount_threshold * 0.5)
+        mask = work[location_col].isin(rare_locs) & (work[amt_col] > amount_threshold * 0.5)
         flags |= mask
         for i in mask[mask].index:
-            reasons[df.index.get_loc(i)].append("Rare location + elevated amount")
+            reasons[i].append("Rare location + elevated amount")
 
     # Rule 3: High frequency in short time
     if freq_col:
-        high_freq = df[freq_col] > df[freq_col].quantile(0.95)
+        high_freq = work[freq_col] > work[freq_col].quantile(0.95)
         flags |= high_freq
         for i in high_freq[high_freq].index:
-            reasons[df.index.get_loc(i)].append("High transaction frequency")
+            reasons[i].append("High transaction frequency")
 
-    result["Rule_Flag"] = flags
+    result = df.copy()
+    result["Rule_Flag"] = flags.values
     result["Rule_Reasons"] = ["; ".join(r) if r else "" for r in reasons]
     return result
 

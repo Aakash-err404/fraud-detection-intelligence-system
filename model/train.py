@@ -125,7 +125,7 @@ def train_model(
 
     preprocessor = build_preprocessor(numeric_cols, categorical_cols)
 
-    class_weights = compute_class_weights(y_train)
+    class_weights = None if use_smote else compute_class_weights(y_train)
     classifier = get_model(model_name, class_weights)
 
     steps = [("preprocessor", preprocessor)]
