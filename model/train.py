@@ -46,7 +46,7 @@ def get_model(model_name: str, class_weight_dict: dict | None = None):
     if model_name == "Logistic Regression":
         return LogisticRegression(
             max_iter=1000,
-            class_weight="balanced",
+            class_weight="balanced" if class_weight_dict is not None else None,
             random_state=42,
             n_jobs=-1,
         )
@@ -54,7 +54,7 @@ def get_model(model_name: str, class_weight_dict: dict | None = None):
         return RandomForestClassifier(
             n_estimators=200,
             max_depth=15,
-            class_weight="balanced",
+            class_weight="balanced" if class_weight_dict is not None else None,
             random_state=42,
             n_jobs=-1,
         )

@@ -314,7 +314,14 @@ def mine_association_rules(
     if columns is None:
         columns = df.columns.tolist()
 
-    bin_labels = ["Low", "Med", "High"][:n_bins] if n_bins <= 3 else [f"Bin_{i}" for i in range(1, n_bins + 1)]
+    if n_bins == 1:
+        bin_labels = ["All"]
+    elif n_bins == 2:
+        bin_labels = ["Low", "High"]
+    elif n_bins == 3:
+        bin_labels = ["Low", "Med", "High"]
+    else:
+        bin_labels = [f"Bin_{i}" for i in range(1, n_bins + 1)]
 
     # Pre-compute binned values for numeric columns across the full column
     binned_cols: dict[str, pd.Series] = {}
