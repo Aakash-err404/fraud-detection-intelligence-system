@@ -174,13 +174,18 @@ if mode == "Use Pre-trained Model":
                     anomaly_count = (result_df["Anomaly"] == -1).sum() if "Anomaly" in result_df.columns else None
                     rule_flag_count = result_df["Rule_Flag"].sum() if "Rule_Flag" in result_df.columns else None
 
-                    cols_m = st.columns(4 if anomaly_count is not None else 2)
-                    cols_m[0].metric("Fraud Detected", fraud_count)
-                    cols_m[1].metric("Not Fraud", not_fraud_count)
+                    n_metric_cols = 2 + (1 if anomaly_count is not None else 0) + (1 if rule_flag_count is not None else 0)
+                    cols_m = st.columns(n_metric_cols)
+                    col_idx = 0
+                    cols_m[col_idx].metric("Fraud Detected", fraud_count)
+                    col_idx += 1
+                    cols_m[col_idx].metric("Not Fraud", not_fraud_count)
+                    col_idx += 1
                     if anomaly_count is not None:
-                        cols_m[2].metric("Anomalies", anomaly_count)
-                    if rule_flag_count is not None and len(cols_m) > 3:
-                        cols_m[3].metric("Rule Flags", int(rule_flag_count))
+                        cols_m[col_idx].metric("Anomalies", anomaly_count)
+                        col_idx += 1
+                    if rule_flag_count is not None:
+                        cols_m[col_idx].metric("Rule Flags", int(rule_flag_count))
 
                     display_cols = ["Prediction_Label", "Fraud_Probability"]
                     if "Rule_Flag" in result_df.columns:

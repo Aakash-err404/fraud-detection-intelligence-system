@@ -192,11 +192,16 @@ def compute_spending_score(
 
     q33 = score.quantile(0.33)
     q66 = score.quantile(0.66)
-    result["Spending_Segment"] = pd.cut(
-        score,
-        bins=[-np.inf, q33, q66, np.inf],
-        labels=["Normal User", "Active User", "High Value / Risky"],
-    )
+    if q33 == q66:
+        result["Spending_Segment"] = pd.Series(
+            "Active User", index=score.index, dtype="category",
+        )
+    else:
+        result["Spending_Segment"] = pd.cut(
+            score,
+            bins=[-np.inf, q33, q66, np.inf],
+            labels=["Normal User", "Active User", "High Value / Risky"],
+        )
     return result
 
 
@@ -301,19 +306,31 @@ def mine_association_rules(
     if columns is None:
         columns = df.columns.tolist()
 
+    bin_labels = ["Low", "Med", "High"][:n_bins]
+
+    # Pre-compute binned values for numeric columns across the full column
+    binned_cols: dict[str, pd.Series] = {}
+    for col in columns:
+        if df[col].dtype.kind in ("i", "f"):
+            try:
+                binned_cols[col] = pd.cut(
+                    df[col], bins=n_bins, labels=bin_labels,
+                )
+            except Exception:
+                binned_cols[col] = pd.Series("Med", index=df.index)
+
     items_per_row: list[list[str]] = []
-    for _, row in df[columns].iterrows():
+    for idx, row in df[columns].iterrows():
         items: list[str] = []
         for col in columns:
             val = row[col]
             if pd.isna(val):
                 continue
-            if isinstance(val, (int, float, np.integer, np.floating)):
-                try:
-                    bin_label = pd.cut([val], bins=n_bins, labels=["Low", "Med", "High"])[0]
-                except Exception:
-                    bin_label = "Med"
-                items.append(f"{col}={bin_label}")
+            if col in binned_cols:
+                bl = binned_cols[col].loc[idx]
+                if pd.isna(bl):
+                    continue
+                items.append(f"{col}={bl}")
             else:
                 items.append(f"{col}={val}")
         items_per_row.append(items)
