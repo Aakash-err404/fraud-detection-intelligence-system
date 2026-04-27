@@ -7,7 +7,7 @@ A web-based fraud detection system that uses machine learning to classify transa
 ## Features
 
 - **CSV Upload** — Upload any transaction dataset for fraud detection
-- **Pre-trained Model** — Instant predictions using a bundled Random Forest model
+- **Pre-trained Model** — Instant predictions using a bundled XGBoost model
 - **Train New Models** — Train Logistic Regression, Random Forest, or XGBoost on your data
 - **Class Imbalance Handling** — SMOTE oversampling and balanced class weights
 - **Evaluation Metrics** — Accuracy, Precision, Recall, F1 Score, Confusion Matrix
@@ -24,7 +24,7 @@ fraud_detection_system/
 │   ├── preprocessing.py    # Data validation, feature detection, sklearn pipelines
 │   ├── train.py            # Model training (LR, RF, XGBoost) with SMOTE
 │   ├── predict.py          # Inference with threshold-based classification
-│   └── saved_model.pkl     # Pre-trained Random Forest model
+│   └── saved_model.pkl     # Pre-trained XGBoost model
 ├── utils/
 │   └── visualization.py    # Confusion matrix, feature importance, distribution plots
 ├── scripts/
@@ -112,7 +112,7 @@ The notebook at `notebooks/Fraud_Detection_Intelligence_System.ipynb` provides t
 python -m scripts.generate_pretrained_model
 ```
 
-This trains a Random Forest on a synthetic fraud dataset and saves `model/saved_model.pkl`. If Kaggle credentials are configured, it downloads the real Credit Card Fraud dataset instead.
+This trains an XGBoost model on a synthetic fraud dataset and saves `model/saved_model.pkl`. If Kaggle credentials are configured, it downloads the real Credit Card Fraud dataset instead.
 
 ## Requirements
 
