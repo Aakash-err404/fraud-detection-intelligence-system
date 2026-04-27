@@ -150,10 +150,12 @@ def compute_spending_score(
     result = df.copy()
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
 
-    def _resolve(col_hint: str | None, keywords: list[str]) -> str | None:
+    all_cols = df.columns.tolist()
+
+    def _resolve(col_hint: str | None, keywords: list[str], search_cols: list[str] | None = None) -> str | None:
         if col_hint and col_hint in df.columns:
             return col_hint
-        for c in numeric_cols:
+        for c in (search_cols if search_cols is not None else numeric_cols):
             if c.lower() in keywords:
                 return c
         return None
@@ -161,7 +163,7 @@ def compute_spending_score(
     amt = _resolve(amount_col, ["amount", "amt", "transaction_amount", "transactionamt"])
     freq = _resolve(frequency_col, ["frequency", "freq", "transaction_frequency"])
     time = _resolve(time_col, ["time", "hour", "timestamp"])
-    cat = _resolve(category_col, ["category", "merchant_category", "merchantcategory"])
+    cat = _resolve(category_col, ["category", "merchant_category", "merchantcategory"], search_cols=all_cols)
 
     def _scale_col(series: pd.Series) -> pd.Series:
         mn, mx = series.min(), series.max()
