@@ -36,17 +36,25 @@ def align_columns(
     df = normalize_column_names(df)
     df = drop_non_feature_columns(df)
 
-    # Normalize expected column names to match (handles pre-existing models with mixed case)
-    expected_numeric = [re.sub(r"\s+", "_", c.strip().lower()) for c in expected_numeric]
-    expected_categorical = [re.sub(r"\s+", "_", c.strip().lower()) for c in expected_categorical]
-
     # Remove the target column if present so it doesn't interfere
     if target_col and target_col in df.columns:
         df = df.drop(columns=[target_col])
 
+    # Build mapping: normalized expected name → original expected name
     all_expected = expected_numeric + expected_categorical
+    norm_to_orig = {}
+    for col in all_expected:
+        normalized = re.sub(r"\s+", "_", col.strip().lower())
+        norm_to_orig[normalized] = col
 
-    # Add missing columns with default value 0
+    # Rename matched input columns from normalized names to original expected names
+    rename_map = {}
+    for col in df.columns:
+        if col in norm_to_orig:
+            rename_map[col] = norm_to_orig[col]
+    df = df.rename(columns=rename_map)
+
+    # Add missing expected columns with default value 0
     for col in all_expected:
         if col not in df.columns:
             df[col] = 0
