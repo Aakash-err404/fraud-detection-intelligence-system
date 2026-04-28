@@ -40,7 +40,7 @@ def _columns_match(
         for c in expected_numeric + expected_categorical
     }
     matched = expected_normalized & df_cols_normalized
-    return len(matched) >= len(expected_normalized) * 0.5
+    return len(matched) == len(expected_normalized)
 
 
 def _prepare_features(
