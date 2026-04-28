@@ -1,7 +1,8 @@
 """Prediction module for fraud detection.
 
 Loads a pre-trained model and runs inference on new data.
-Adapts any incoming dataset to match the model's expected feature columns.
+If the dataset schema does not match the model features, automatically
+retrains on the uploaded dataset instead of forcing column alignment.
 """
 
 from __future__ import annotations
@@ -12,58 +13,77 @@ import numpy as np
 import pandas as pd
 
 from model.preprocessing import (
-    drop_non_feature_columns,
+    detect_target_column,
     normalize_column_names,
     validate_dataframe,
 )
 from model.train import load_model
 
-FRAUD_THRESHOLD = 0.5
+FRAUD_THRESHOLD = 0.1
 
 
-def align_columns(
+def _columns_match(
+    df: pd.DataFrame,
+    expected_numeric: list[str],
+    expected_categorical: list[str],
+) -> bool:
+    """Check whether the dataframe columns match the model's expected features.
+
+    Compares using normalized (lowercased) column names so that
+    'Amount' matches 'amount', etc.
+    """
+    df_cols_normalized = {
+        re.sub(r"\s+", "_", c.strip().lower()) for c in df.columns
+    }
+    expected_normalized = {
+        re.sub(r"\s+", "_", c.strip().lower())
+        for c in expected_numeric + expected_categorical
+    }
+    matched = expected_normalized & df_cols_normalized
+    return len(matched) == len(expected_normalized)
+
+
+def _prepare_features(
     df: pd.DataFrame,
     expected_numeric: list[str],
     expected_categorical: list[str],
     target_col: str | None = None,
 ) -> pd.DataFrame:
-    """Align incoming dataframe columns to match expected model features.
+    """Prepare a feature dataframe by renaming columns to match model expectations.
 
-    - Normalizes column names (lowercase, trimmed, underscores)
-    - Drops obvious non-feature columns (IDs, names, identifiers)
-    - Adds missing expected columns with default value 0
-    - Drops extra columns not used by the model
-    - Reorders columns to match the expected order
+    Only renames columns that exist in the data; does NOT add missing columns
+    with default values (which would produce garbage predictions).
     """
-    df = normalize_column_names(df)
-    df = drop_non_feature_columns(df)
+    work = df.copy()
 
-    # Remove the target column if present so it doesn't interfere
-    if target_col and target_col in df.columns:
-        df = df.drop(columns=[target_col])
-
-    # Build mapping: normalized expected name → original expected name
-    all_expected = expected_numeric + expected_categorical
-    norm_to_orig = {}
-    for col in all_expected:
+    # Build mapping: normalized name → original expected name
+    norm_to_expected: dict[str, str] = {}
+    for col in expected_numeric + expected_categorical:
         normalized = re.sub(r"\s+", "_", col.strip().lower())
-        norm_to_orig[normalized] = col
+        norm_to_expected[normalized] = col
 
-    # Rename matched input columns from normalized names to original expected names
-    rename_map = {}
-    for col in df.columns:
-        if col in norm_to_orig:
-            rename_map[col] = norm_to_orig[col]
-    df = df.rename(columns=rename_map)
+    # Normalize data column names and map back to expected names
+    rename_map: dict[str, str] = {}
+    for col in work.columns:
+        normalized = re.sub(r"\s+", "_", col.strip().lower())
+        if normalized in norm_to_expected:
+            rename_map[col] = norm_to_expected[normalized]
+    work = work.rename(columns=rename_map)
 
-    # Add missing expected columns with default value 0
-    for col in all_expected:
-        if col not in df.columns:
-            df[col] = 0
+    # Drop target column if present
+    if target_col:
+        norm_target = re.sub(r"\s+", "_", target_col.strip().lower())
+        cols_to_drop = [
+            c for c in work.columns
+            if re.sub(r"\s+", "_", c.strip().lower()) == norm_target
+        ]
+        if cols_to_drop:
+            work = work.drop(columns=cols_to_drop)
 
-    # Keep only expected columns, in expected order
-    df = df[all_expected]
-    return df
+    # Keep only the expected columns that actually exist
+    all_expected = expected_numeric + expected_categorical
+    available = [c for c in all_expected if c in work.columns]
+    return work[available]
 
 
 def predict(
@@ -74,14 +94,15 @@ def predict(
 ) -> pd.DataFrame:
     """Run fraud prediction on a dataframe.
 
-    Automatically adapts the dataset to match the model's expected schema.
-    Never raises errors for column mismatches — always aligns instead.
+    If the dataset schema matches the model features, runs inference directly.
+    If the schema does not match but the dataset contains a target column,
+    automatically retrains a model on the uploaded data.
 
     Args:
         df: Input dataframe with transaction features.
-        model_artifact: Pre-loaded model artifact dict. If None, loads from model_path.
-        model_path: Path to saved model file. Used only if model_artifact is None.
-        threshold: Probability threshold for fraud classification.
+        model_artifact: Pre-loaded model artifact dict.
+        model_path: Path to saved model file.
+        threshold: Probability threshold for fraud classification (default 0.1).
 
     Returns:
         DataFrame with original data plus prediction columns.
@@ -101,10 +122,35 @@ def predict(
     categorical_cols = model_artifact["categorical_cols"]
     target_col = model_artifact.get("target_col")
 
-    # Normalize the target_col name to match normalized columns
-    normalized_target = re.sub(r"\s+", "_", target_col.strip().lower()) if target_col else None
+    schema_ok = _columns_match(df, numeric_cols, categorical_cols)
 
-    X = align_columns(df, numeric_cols, categorical_cols, target_col=normalized_target)
+    if not schema_ok:
+        # Schema mismatch — check if dataset has a target column for retraining
+        detected_target = detect_target_column(
+            normalize_column_names(df),
+        )
+        if detected_target is not None:
+            from model.train import train_model
+            retrained = train_model(df, model_name="XGBoost", target_col=detected_target)
+            pipeline = retrained["pipeline"]
+            numeric_cols = retrained["numeric_cols"]
+            categorical_cols = retrained["categorical_cols"]
+            target_col = retrained["target_col"]
+        else:
+            raise ValueError(
+                "Dataset schema does not match the model's expected features "
+                "and no target column was found for automatic retraining. "
+                f"Expected features: {numeric_cols + categorical_cols}"
+            )
+
+    X = _prepare_features(df, numeric_cols, categorical_cols, target_col)
+
+    if X.shape[1] == 0:
+        raise ValueError(
+            "No matching feature columns found after preparation. "
+            f"Expected: {numeric_cols + categorical_cols}, "
+            f"Got: {list(df.columns)}"
+        )
 
     result_df = df.copy()
 
