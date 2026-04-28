@@ -131,7 +131,7 @@ def predict(
         )
         if detected_target is not None:
             from model.train import train_model
-            retrained = train_model(df, model_name="XGBoost")
+            retrained = train_model(df, model_name="XGBoost", target_col=detected_target)
             pipeline = retrained["pipeline"]
             numeric_cols = retrained["numeric_cols"]
             categorical_cols = retrained["categorical_cols"]
